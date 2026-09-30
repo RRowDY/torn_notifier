@@ -1,0 +1,7 @@
+services:
+  torn-notifier:
+    build: .
+    env_file: .env
+    restart: no
+    mem_limit: 128m
+    cpus: 0.25

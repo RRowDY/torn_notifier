@@ -2,7 +2,7 @@
   "name": "torn-notifier",
   "version": "1.0.0",
   "private": true,
-  "description": "Personal Discord DMs for Torn timer alerts",
+  "description": "Discord and optional iPhone alerts for Torn timers",
   "type": "module",
   "engines": {
     "node": ">=22"

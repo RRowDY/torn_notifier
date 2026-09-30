@@ -8,17 +8,12 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
+import type { Alert } from './notify/alert.js';
 
 const COOLDOWNS_COMMAND = new SlashCommandBuilder()
   .setName('cooldowns')
   .setDescription('View your cooldowns & timers ')
   .toJSON();
-
-export interface OutboundAlert {
-  text: string;
-  buttonLabel: string;
-  url: string;
-}
 
 export async function createNotifier(
   token: string,
@@ -42,7 +37,7 @@ export async function createNotifier(
   });
 
   return {
-    async send(alert: OutboundAlert): Promise<void> {
+    async send(alert: Alert): Promise<void> {
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)

@@ -1,6 +1,8 @@
 import { evaluate, initialAlertState, type AlertState } from './alerts/evaluate.js';
 import { loadConfig } from './config.js';
 import { createNotifier } from './discord.js';
+import { createFanout, type AlertChannel } from './notify/fanout.js';
+import { createNtfyChannel } from './notify/ntfy.js';
 import { createTimerStore } from './scheduler.js';
 import { formatStatus } from './status.js';
 import { fetchSnapshot } from './torn/client.js';
@@ -28,9 +30,13 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const notifier = await createNotifier(config.discordToken, config.discordUserId, async () =>
+  const discord = await createNotifier(config.discordToken, config.discordUserId, async () =>
     formatStatus(await fetchSnapshot(config.tornApiKey), Date.now()),
   );
+  const channels: AlertChannel[] = [{ name: 'discord', send: (alert) => discord.send(alert) }];
+  if (config.ntfy) channels.push(createNtfyChannel(config.ntfy));
+  const fanout = createFanout(channels);
+
   const abort = new AbortController();
   let state: AlertState = initialAlertState();
   const timers = createTimerStore((key) => {
@@ -40,20 +46,22 @@ async function main(): Promise<void> {
   const shutdown = () => {
     abort.abort();
     timers.clear();
-    void notifier.close();
+    void discord.close();
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
   let failureStreak = 0;
-  console.log(`${new Date().toISOString()} info Torn notifier started`);
+  console.log(
+    `${new Date().toISOString()} info Torn notifier started (${channels.map((channel) => channel.name).join(', ')})`,
+  );
 
   while (!abort.signal.aborted) {
     try {
       const snapshot = await fetchSnapshot(config.tornApiKey);
       const result = evaluate(snapshot, Date.now(), state);
       state = result.state;
-      timers.arm(result.alerts, (alert) => notifier.send(alert));
+      timers.arm(result.alerts, (alert) => fanout.send(alert));
       failureStreak = 0;
       console.log(
         `${new Date().toISOString()} info Next Torn sync in ${Math.round(result.nextSyncDelayMs / 1000)}s (${result.alerts.length} timer(s) armed)`,
